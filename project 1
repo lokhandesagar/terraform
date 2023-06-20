@@ -1,0 +1,83 @@
+provider "aws" {
+  region = "ap-south-1"
+}
+####################### VPC ##############
+
+resource "aws_vpc" "myvpc" {
+  cidr_block = "10.0.0.0/16"
+}
+
+############# INTERNET GETWAY #########
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.myvpc.id
+
+  tags = {
+    Name = "main"
+  }
+}
+############### subnet ################
+resource "aws_subnet" "mysubnet" {
+  vpc_id     = aws_vpc.myvpc.id
+  cidr_block = "10.0.1.0/24"
+
+  tags = {
+    Name = "Main"
+  }
+}
+############# Route table ##########
+resource "aws_route_table" "rt" {
+  vpc_id = aws_vpc.myvpc.id # Argument
+  route = []
+
+  tags = {
+    Name = "main"
+  }
+}
+############# route ###########
+resource "aws_route" "r" {
+  route_table_id         = aws_route_table.rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+  depends_on             = [aws_route_table.rt]
+}
+
+############## security group #########
+resource "aws_security_group" "sg" {
+  name        = "allow_tls"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = aws_vpc.myvpc.id
+
+  ingress { # inbound rule
+    description = "TLS from VPC"
+    from_port   = 0    # all ports
+    to_port     = 0    # all ports
+    protocol    = "-1" # all traffics
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress { # Outbound rule
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "all traffic"
+  }
+}
+################# Route table association ###########
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.mysubnet.id
+  route_table_id = aws_route_table.rt.id
+}
+
+################# ec2 #####################
+resource "aws_instance" "web" {
+  ami           = "ami-057752b3f1d6c4d6c"
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "HelloWorld"
+  }
+}
